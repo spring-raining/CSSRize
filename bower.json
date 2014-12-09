@@ -1,0 +1,21 @@
+{
+  "name": "CSSRize",
+  "version": "0.0.0",
+  "authors": [
+    "spring-raining"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/spring-raining/CSSRize",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "jquery": "~2.1.1",
+    "jquery.transit": "~0.9.12",
+    "bourbon": "~4.0.2"
+  }
+}

@@ -1,0 +1,41 @@
+@import "../bower_components/bourbon/dist/bourbon";
+
+body {
+  width: 100vw;
+  height: 100vh;
+}
+
+.rize_scene {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background-color: azure;
+
+  .rize_obj {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    margin: auto;
+
+    @include keyframes(rotation) {
+      0% { @include transform(rotateY(0deg)); }
+      100% { @include transform(rotateY(360deg)); }
+    }
+    //@include animation(rotation 8s linear infinite);
+
+    transform-style: preserve-3d;
+    perspective: 100em;
+  }
+
+  .rize_face {
+    position: absolute;
+    width: 0;
+    height: 0;
+    @include transform-origin(0 0);
+  }
+}
