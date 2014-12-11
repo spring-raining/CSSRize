@@ -25,3 +25,4 @@ bower_components/
 
 # gitignore
 !.gitignore
+*.sc1

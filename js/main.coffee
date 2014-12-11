@@ -25,18 +25,41 @@ class Vector
 class CSSRize
   _objData = null
 
-  run: ($scene_place, objFile) ->
+  run: ($scene_place, objFile, texFile=null, texResolution=null) ->
     console.log "parsing..."
     parseObjFile objFile
     .then (objData) ->
+      d = new $.Deferred
+      if texFile?
+        if texResolution?
+          texImg = new Image texResolution, texResolution
+        else
+          texImg = new Image()
+        texImg.onload = ->
+          if texResolution?
+            canvas = $('<canvas>').get 0
+            ctx = canvas.getContext "2d"
+            canvas.width = texResolution
+            canvas.height = texResolution
+            ctx.drawImage texImg, 0, 0, texResolution, texResolution
+            d.resolve objData, canvas
+          else
+            d.resolve objData, texImg
+        texImg.onerror = -> d.resolve objData
+        texImg.src = texFile
+      else
+        d.resolve objData
+      d.promise()
+    .then (objData, texImg=null) ->
       console.log "creating..."
-      createScene $scene_place, objData
+      createScene $scene_place, objData, texImg
     .then ($scene) -> setScene $scene
     .then ->
       console.log "done!"
 
 
-  createScene = ($place, objData, scale=10) ->
+
+  createScene = ($place, objData, texImg=null, scale=10) ->
     d = new $.Deferred
     objV= objData.vertex
     objT = objData.texture
@@ -50,7 +73,7 @@ class CSSRize
       if face.length is 3
         $face = $('<div class="rize_face"></div>')
 
-        v = [objV[face[0].vNumber], objV[face[1].vNumber], objV[face[2].vNumber]]
+        v = [objV[face[0].vNumber], objV[face[2].vNumber], objV[face[1].vNumber]]
         vecPQ = new Vector v[1], v[0]
         vecPR = new Vector v[2], v[0]
         theta = - atan2 vecPQ.y, vecPQ.x
@@ -78,17 +101,58 @@ class CSSRize
                             + "                                                           0,                                                            0,                       0, 1) "\
             + "skewX(#{Math.PI / 2 - rad}rad)"\
             + ""
-        if false
-          # texture mode
+        if texImg? and (blob = createTextureBlob texImg, objT[face[0].vtNumber], objT[face[1].vtNumber], objT[face[2].vtNumber])?
+          $face.css
+            width: "#{width * scale}em"
+            height: "#{height * scale}em"
+            "background-image": "url(#{blob})"
         else
           color = Math.round 220 +  Math.abs(theta / Math.PI) * (256 - 220)
           $face.css
             "border-style": "solid"
             "border-width": "#{height * scale}em #{width * scale}em 0 0"
-            "border-color": "rgba(#{color}, #{color}, #{color}, 1) transparent transparent transparent"
+            "border-color": "rgba(#{color}, #{color}, #{color}, 0.5) transparent transparent transparent"
         $obj.append $face
     d.resolve $place
     d.promise()
+
+
+  createTextureBlob = (texture, vtP, vtQ, vtR) ->
+    if not vtP? or not vtQ? or not vtR? or not vtP.x? or not vtQ.x? or not vtR.x?
+      return null
+    canvas = $('<canvas>').get 0
+    context = canvas.getContext "2d"
+    texWidth = texture.width
+    texHeight = texture.height
+    tx = (vt) -> vt.x * texWidth
+    ty = (vt) -> (1 - vt.y) * texHeight
+
+    vtS =
+      x: vtP.x + (vtQ.x - vtP.x) + (vtR.x - vtP.x)
+      y: vtP.y + (vtQ.y - vtP.y) + (vtR.y - vtP.y)
+    areaX = Math.min(tx(vtP), tx(vtQ), tx(vtR), tx(vtS))
+    areaY = Math.min(ty(vtP), ty(vtQ), ty(vtR), ty(vtS))
+    areaWidth  = Math.max(tx(vtP), tx(vtQ), tx(vtR), tx(vtS)) - areaX
+    areaHeight = Math.max(ty(vtP), ty(vtQ), ty(vtR), ty(vtS)) - areaY
+
+
+    theta = - atan2(ty(vtR) - ty(vtP), tx(vtR) - tx(vtP))
+    phi = atan2(ty(vtQ) - ty(vtP), tx(vtQ) - tx(vtP)) + theta + Math.PI / 2
+    canvas.width  =  norm([tx(vtR) - tx(vtP), ty(vtR) - ty(vtP)])
+    canvas.height = (norm([tx(vtQ) - tx(vtP), ty(vtQ) - ty(vtP)]) * cos(Math.PI + phi))
+
+    context.beginPath()
+    context.moveTo 0, 0
+    context.lineTo canvas.width * 1.05, 0
+    context.lineTo 0, canvas.height * 1.05
+    context.closePath()
+    context.clip()
+
+    context.transform 1, 0, tan(phi), 1, 0, 0
+    context.transform cos(theta), sin(theta), -sin(theta), cos(theta), 0, 0
+    context.drawImage texture, areaX, areaY, areaWidth, areaHeight,
+                      (areaX - tx(vtP)), (areaY - ty(vtP)), areaWidth, areaHeight
+    canvas.toDataURL()
 
 
   setScene = ($place) ->
@@ -117,16 +181,6 @@ class CSSRize
     objData.vertex = {}
     objData.texture = {}
     objData.face = {}
-
-    getFile = (file) ->
-      d_ = new $.Deferred
-      $.get file
-        .done (data, textStatus) ->
-          d_.resolve data
-        .fail (jqxhr, settings, exception) ->
-          console.log "file not found!"
-          d_.reject(jqxhr)
-      d_.promise()
 
     getFile objFile
     .then (data) ->
@@ -172,9 +226,46 @@ class CSSRize
       d.resolve objData
     d.promise()
 
+
+  getFile = (file) ->
+    d = new $.Deferred
+    $.get file
+    .done (data, textStatus) ->
+      d.resolve data
+    .fail (jqxhr, settings, exception) ->
+      console.log "file not found! : #{file}"
+      d.reject jqxhr
+    d.promise()
+
+
   sin = (x) -> Math.sin(x)
   cos = (x) -> Math.cos(x)
+  tan = (x) -> Math.tan(x)
   atan2 = (y, x) -> Math.atan2(y, x)
+  norm = (arr, sum=0) ->
+    if arr.length is 0
+      Math.sqrt sum
+    else
+      s = arr.shift()
+      norm(arr, sum + s * s)
+
+
+  _exportTestTexture = ($scene_place, objData, texImg) ->
+    parseObjFile objFile
+    .then (objData) ->
+      texImg = new Image()
+      texImg.onload = ->
+        $canvas = $('<canvas>')
+        canvas = $canvas.get 0
+        ctx = canvas.getContext "2d"
+        canvas.width = texImg.width
+        canvas.height = texImg.height
+        ctx.drawImage texImg, 0, 0
+        for vtNumber, vt of objData.texture
+          ctx.fillRect vt.x * canvas.width - 3, (1 - vt.y) * canvas.height - 3, 6, 6
+        $scene_place.append $canvas
+      texImg.src = texFile
+
 
 $ =>
-  new CSSRize().run $("#scene"), "data/sphere.obj"
+  new CSSRize().run $("#scene"), "data/sphere.obj", "data/sphere.png", 2048

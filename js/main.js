@@ -40,17 +40,56 @@
   })();
 
   CSSRize = (function() {
-    var atan2, cos, createScene, parseObjFile, setScene, sin, _objData;
+    var atan2, cos, createScene, createTextureBlob, getFile, norm, parseObjFile, setScene, sin, tan, _exportTestTexture, _objData;
 
     function CSSRize() {}
 
     _objData = null;
 
-    CSSRize.prototype.run = function($scene_place, objFile) {
+    CSSRize.prototype.run = function($scene_place, objFile, texFile, texResolution) {
+      if (texFile == null) {
+        texFile = null;
+      }
+      if (texResolution == null) {
+        texResolution = null;
+      }
       console.log("parsing...");
       return parseObjFile(objFile).then(function(objData) {
+        var d, texImg;
+        d = new $.Deferred;
+        if (texFile != null) {
+          if (texResolution != null) {
+            texImg = new Image(texResolution, texResolution);
+          } else {
+            texImg = new Image();
+          }
+          texImg.onload = function() {
+            var canvas, ctx;
+            if (texResolution != null) {
+              canvas = $('<canvas>').get(0);
+              ctx = canvas.getContext("2d");
+              canvas.width = texResolution;
+              canvas.height = texResolution;
+              ctx.drawImage(texImg, 0, 0, texResolution, texResolution);
+              return d.resolve(objData, canvas);
+            } else {
+              return d.resolve(objData, texImg);
+            }
+          };
+          texImg.onerror = function() {
+            return d.resolve(objData);
+          };
+          texImg.src = texFile;
+        } else {
+          d.resolve(objData);
+        }
+        return d.promise();
+      }).then(function(objData, texImg) {
+        if (texImg == null) {
+          texImg = null;
+        }
         console.log("creating...");
-        return createScene($scene_place, objData);
+        return createScene($scene_place, objData, texImg);
       }).then(function($scene) {
         return setScene($scene);
       }).then(function() {
@@ -58,8 +97,11 @@
       });
     };
 
-    createScene = function($place, objData, scale) {
-      var $face, $obj, color, d, fNumber, face, height, objF, objT, objV, phi, psi, rad, theta, v, vecPQ, vecPQ1, vecPR, vecPR1, vecPR2, width;
+    createScene = function($place, objData, texImg, scale) {
+      var $face, $obj, blob, color, d, fNumber, face, height, objF, objT, objV, phi, psi, rad, theta, v, vecPQ, vecPQ1, vecPR, vecPR1, vecPR2, width;
+      if (texImg == null) {
+        texImg = null;
+      }
       if (scale == null) {
         scale = 10;
       }
@@ -73,7 +115,7 @@
         face = objF[fNumber];
         if (face.length === 3) {
           $face = $('<div class="rize_face"></div>');
-          v = [objV[face[0].vNumber], objV[face[1].vNumber], objV[face[2].vNumber]];
+          v = [objV[face[0].vNumber], objV[face[2].vNumber], objV[face[1].vNumber]];
           vecPQ = new Vector(v[1], v[0]);
           vecPR = new Vector(v[2], v[0]);
           theta = -atan2(vecPQ.y, vecPQ.x);
@@ -88,14 +130,18 @@
           $face.css({
             transform: ("translate3D(" + (v[0].x * scale) + "em, ") + ("" + (v[0].y * scale) + "em, ") + ("" + (v[0].z * scale) + "em) ") + ("matrix3D(                                   " + (-cos(theta) * cos(phi)) + ",                                     " + (sin(theta) * cos(phi)) + ",            " + (-sin(phi)) + ", 0, ") + ("" + (-sin(theta) * cos(psi) - cos(theta) * sin(phi) * sin(psi)) + ", " + (-cos(theta) * cos(psi) + sin(theta) * sin(phi) * sin(psi)) + ",  " + (cos(phi) * sin(psi)) + ", 0, ") + ("" + (-sin(theta) * sin(psi) + cos(theta) * sin(phi) * cos(psi)) + ", " + (-cos(theta) * sin(psi) - sin(theta) * sin(phi) * cos(psi)) + ", " + (-cos(phi) * cos(psi)) + ", 0, ") + "                                                           0,                                                            0,                       0, 1) " + ("skewX(" + (Math.PI / 2 - rad) + "rad)") + ""
           });
-          if (false) {
-
+          if ((texImg != null) && ((blob = createTextureBlob(texImg, objT[face[0].vtNumber], objT[face[1].vtNumber], objT[face[2].vtNumber])) != null)) {
+            $face.css({
+              width: "" + (width * scale) + "em",
+              height: "" + (height * scale) + "em",
+              "background-image": "url(" + blob + ")"
+            });
           } else {
             color = Math.round(220 + Math.abs(theta / Math.PI) * (256 - 220));
             $face.css({
               "border-style": "solid",
               "border-width": "" + (height * scale) + "em " + (width * scale) + "em 0 0",
-              "border-color": "rgba(" + color + ", " + color + ", " + color + ", 1) transparent transparent transparent"
+              "border-color": "rgba(" + color + ", " + color + ", " + color + ", 0.5) transparent transparent transparent"
             });
           }
           $obj.append($face);
@@ -103,6 +149,45 @@
       }
       d.resolve($place);
       return d.promise();
+    };
+
+    createTextureBlob = function(texture, vtP, vtQ, vtR) {
+      var areaHeight, areaWidth, areaX, areaY, canvas, context, phi, texHeight, texWidth, theta, tx, ty, vtS;
+      if ((vtP == null) || (vtQ == null) || (vtR == null) || (vtP.x == null) || (vtQ.x == null) || (vtR.x == null)) {
+        return null;
+      }
+      canvas = $('<canvas>').get(0);
+      context = canvas.getContext("2d");
+      texWidth = texture.width;
+      texHeight = texture.height;
+      tx = function(vt) {
+        return vt.x * texWidth;
+      };
+      ty = function(vt) {
+        return (1 - vt.y) * texHeight;
+      };
+      vtS = {
+        x: vtP.x + (vtQ.x - vtP.x) + (vtR.x - vtP.x),
+        y: vtP.y + (vtQ.y - vtP.y) + (vtR.y - vtP.y)
+      };
+      areaX = Math.min(tx(vtP), tx(vtQ), tx(vtR), tx(vtS));
+      areaY = Math.min(ty(vtP), ty(vtQ), ty(vtR), ty(vtS));
+      areaWidth = Math.max(tx(vtP), tx(vtQ), tx(vtR), tx(vtS)) - areaX;
+      areaHeight = Math.max(ty(vtP), ty(vtQ), ty(vtR), ty(vtS)) - areaY;
+      theta = -atan2(ty(vtR) - ty(vtP), tx(vtR) - tx(vtP));
+      phi = atan2(ty(vtQ) - ty(vtP), tx(vtQ) - tx(vtP)) + theta + Math.PI / 2;
+      canvas.width = norm([tx(vtR) - tx(vtP), ty(vtR) - ty(vtP)]);
+      canvas.height = norm([tx(vtQ) - tx(vtP), ty(vtQ) - ty(vtP)]) * cos(Math.PI + phi);
+      context.beginPath();
+      context.moveTo(0, 0);
+      context.lineTo(canvas.width * 1.05, 0);
+      context.lineTo(0, canvas.height * 1.05);
+      context.closePath();
+      context.clip();
+      context.transform(1, 0, tan(phi), 1, 0, 0);
+      context.transform(cos(theta), sin(theta), -sin(theta), cos(theta), 0, 0);
+      context.drawImage(texture, areaX, areaY, areaWidth, areaHeight, areaX - tx(vtP), areaY - ty(vtP), areaWidth, areaHeight);
+      return canvas.toDataURL();
     };
 
     setScene = function($place) {
@@ -134,23 +219,12 @@
     };
 
     parseObjFile = function(objFile) {
-      var d, getFile, objData;
+      var d, objData;
       d = new $.Deferred;
       objData = {};
       objData.vertex = {};
       objData.texture = {};
       objData.face = {};
-      getFile = function(file) {
-        var d_;
-        d_ = new $.Deferred;
-        $.get(file).done(function(data, textStatus) {
-          return d_.resolve(data);
-        }).fail(function(jqxhr, settings, exception) {
-          console.log("file not found!");
-          return d_.reject(jqxhr);
-        });
-        return d_.promise();
-      };
       getFile(objFile).then(function(data) {
         var buf, fNumber, face, faces, info, tok, tokens, vNumber, vtNumber, _i, _j, _len, _len1, _ref;
         vNumber = 1;
@@ -213,6 +287,18 @@
       return d.promise();
     };
 
+    getFile = function(file) {
+      var d;
+      d = new $.Deferred;
+      $.get(file).done(function(data, textStatus) {
+        return d.resolve(data);
+      }).fail(function(jqxhr, settings, exception) {
+        console.log("file not found! : " + file);
+        return d.reject(jqxhr);
+      });
+      return d.promise();
+    };
+
     sin = function(x) {
       return Math.sin(x);
     };
@@ -221,8 +307,47 @@
       return Math.cos(x);
     };
 
+    tan = function(x) {
+      return Math.tan(x);
+    };
+
     atan2 = function(y, x) {
       return Math.atan2(y, x);
+    };
+
+    norm = function(arr, sum) {
+      var s;
+      if (sum == null) {
+        sum = 0;
+      }
+      if (arr.length === 0) {
+        return Math.sqrt(sum);
+      } else {
+        s = arr.shift();
+        return norm(arr, sum + s * s);
+      }
+    };
+
+    _exportTestTexture = function($scene_place, objData, texImg) {
+      return parseObjFile(objFile).then(function(objData) {
+        texImg = new Image();
+        texImg.onload = function() {
+          var $canvas, canvas, ctx, vt, vtNumber, _ref;
+          $canvas = $('<canvas>');
+          canvas = $canvas.get(0);
+          ctx = canvas.getContext("2d");
+          canvas.width = texImg.width;
+          canvas.height = texImg.height;
+          ctx.drawImage(texImg, 0, 0);
+          _ref = objData.texture;
+          for (vtNumber in _ref) {
+            vt = _ref[vtNumber];
+            ctx.fillRect(vt.x * canvas.width - 3, (1 - vt.y) * canvas.height - 3, 6, 6);
+          }
+          return $scene_place.append($canvas);
+        };
+        return texImg.src = texFile;
+      });
     };
 
     return CSSRize;
@@ -231,7 +356,7 @@
 
   $((function(_this) {
     return function() {
-      return new CSSRize().run($("#scene"), "data/sphere.obj");
+      return new CSSRize().run($("#scene"), "data/sphere.obj", "data/sphere.png", 2048);
     };
   })(this));
 
