@@ -166,13 +166,21 @@ class CSSRize
     x = 0
     y = 0
 
-    $place.on "mousemove", (events) =>
+    $place.on "touchmove", (events) =>
+      events.preventDefault()
+      @$rotatee?.css "transform", "rotateY(#{event.changedTouches[0].pageX - @x}deg)"\
+                                + "rotateX(#{@y - event.changedTouches[0].pageY}deg)"
+    .on "mousemove", (events) =>
       @$rotatee?.css "transform", "rotateY(#{events.clientX - @x}deg)"\
                                 + "rotateX(#{@y - events.clientY}deg)"
-    .on "mouseup", (events) =>
+    .on "touchend mouseup", (events) =>
       @$rotatee = null
-
-    $place.on "mousedown", (events) =>
+    .on "touchstart", (events) =>
+      unless @$rotatee?
+        @$rotatee = $place.find(".rize_obj")
+        @x = event.changedTouches[0].pageX
+        @y = event.changedTouches[0].pageY
+    .on "mousedown", (events) =>
       unless @$rotatee?
         @$rotatee = $place.find(".rize_obj")
         @x = events.clientX
@@ -276,6 +284,6 @@ class CSSRize
 $ =>
   new CSSRize().run
     scenePlace: $("#scene").get(0)
-    objFile: "data/rize.obj"
-    texFile: "data/rize.png"
+    objFile: "data/sphere.obj"
+    texFile: "data/sphere.png"
     texResolution: 2048

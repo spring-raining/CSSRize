@@ -201,17 +201,30 @@
       d = new $.Deferred;
       x = 0;
       y = 0;
-      $place.on("mousemove", (function(_this) {
+      $place.on("touchmove", (function(_this) {
+        return function(events) {
+          var _ref;
+          events.preventDefault();
+          return (_ref = _this.$rotatee) != null ? _ref.css("transform", ("rotateY(" + (event.changedTouches[0].pageX - _this.x) + "deg)") + ("rotateX(" + (_this.y - event.changedTouches[0].pageY) + "deg)")) : void 0;
+        };
+      })(this)).on("mousemove", (function(_this) {
         return function(events) {
           var _ref;
           return (_ref = _this.$rotatee) != null ? _ref.css("transform", ("rotateY(" + (events.clientX - _this.x) + "deg)") + ("rotateX(" + (_this.y - events.clientY) + "deg)")) : void 0;
         };
-      })(this)).on("mouseup", (function(_this) {
+      })(this)).on("touchend mouseup", (function(_this) {
         return function(events) {
           return _this.$rotatee = null;
         };
-      })(this));
-      $place.on("mousedown", (function(_this) {
+      })(this)).on("touchstart", (function(_this) {
+        return function(events) {
+          if (_this.$rotatee == null) {
+            _this.$rotatee = $place.find(".rize_obj");
+            _this.x = event.changedTouches[0].pageX;
+            return _this.y = event.changedTouches[0].pageY;
+          }
+        };
+      })(this)).on("mousedown", (function(_this) {
         return function(events) {
           if (_this.$rotatee == null) {
             _this.$rotatee = $place.find(".rize_obj");
@@ -364,8 +377,8 @@
     return function() {
       return new CSSRize().run({
         scenePlace: $("#scene").get(0),
-        objFile: "data/rize.obj",
-        texFile: "data/rize.png",
+        objFile: "data/sphere.obj",
+        texFile: "data/sphere.png",
         texResolution: 2048
       });
     };
