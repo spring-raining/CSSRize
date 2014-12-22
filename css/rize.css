@@ -7,7 +7,7 @@ body {
   height: 100%;
   position: relative;
   overflow: hidden;
-  background-color: azure; }
+  background-color: #9f7661; }
   .rize_scene .rize_obj {
     position: absolute;
     top: 0;
@@ -51,6 +51,6 @@ body {
     -ms-transform-origin: 0 0;
     -o-transform-origin: 0 0;
     transform-origin: 0 0;
-    background-size: 105% 105%; }
+    background-size: 100% 100%; }
 
 /*# sourceMappingURL=rize.css.map */

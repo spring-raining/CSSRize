@@ -10,7 +10,7 @@ body {
   height: 100%;
   position: relative;
   overflow: hidden;
-  background-color: azure;
+  background-color: #9f7661;
 
   .rize_obj {
     position: absolute;
@@ -37,6 +37,6 @@ body {
     width: 0;
     height: 0;
     @include transform-origin(0 0);
-    background-size: 105% 105%;
+    background-size: 100% 100%;
   }
 }

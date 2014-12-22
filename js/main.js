@@ -46,31 +46,37 @@
 
     _objData = null;
 
-    CSSRize.prototype.run = function($scene_place, objFile, texFile, texResolution) {
-      if (texFile == null) {
-        texFile = null;
+    CSSRize.prototype.run = function(args) {
+      if (args.scenePlace == null) {
+        throw "set scenePlace";
       }
-      if (texResolution == null) {
-        texResolution = null;
+      if (args.objFile == null) {
+        throw "set objFile";
+      }
+      if (args.texFile == null) {
+        args.texFile = null;
+      }
+      if (args.texResolution == null) {
+        args.texResolution = null;
       }
       console.log("parsing...");
-      return parseObjFile(objFile).then(function(objData) {
+      return parseObjFile(args.objFile).then(function(objData) {
         var d, texImg;
         d = new $.Deferred;
-        if (texFile != null) {
-          if (texResolution != null) {
-            texImg = new Image(texResolution, texResolution);
+        if (args.texFile != null) {
+          if (args.texResolution != null) {
+            texImg = new Image(args.texResolution, args.texResolution);
           } else {
             texImg = new Image();
           }
           texImg.onload = function() {
             var canvas, ctx;
-            if (texResolution != null) {
+            if (args.texResolution != null) {
               canvas = $('<canvas>').get(0);
               ctx = canvas.getContext("2d");
-              canvas.width = texResolution;
-              canvas.height = texResolution;
-              ctx.drawImage(texImg, 0, 0, texResolution, texResolution);
+              canvas.width = args.texResolution;
+              canvas.height = args.texResolution;
+              ctx.drawImage(texImg, 0, 0, args.texResolution, args.texResolution);
               return d.resolve(objData, canvas);
             } else {
               return d.resolve(objData, texImg);
@@ -79,7 +85,7 @@
           texImg.onerror = function() {
             return d.resolve(objData);
           };
-          texImg.src = texFile;
+          texImg.src = args.texFile;
         } else {
           d.resolve(objData);
         }
@@ -89,7 +95,7 @@
           texImg = null;
         }
         console.log("creating...");
-        return createScene($scene_place, objData, texImg);
+        return createScene($(args.scenePlace), objData, texImg);
       }).then(function($scene) {
         return setScene($scene);
       }).then(function() {
@@ -356,7 +362,12 @@
 
   $((function(_this) {
     return function() {
-      return new CSSRize().run($("#scene"), "data/sphere.obj", "data/sphere.png", 2048);
+      return new CSSRize().run({
+        scenePlace: $("#scene").get(0),
+        objFile: "data/rize.obj",
+        texFile: "data/rize.png",
+        texResolution: 2048
+      });
     };
   })(this));
 

@@ -25,34 +25,40 @@ class Vector
 class CSSRize
   _objData = null
 
-  run: ($scene_place, objFile, texFile=null, texResolution=null) ->
+  run: (args) ->
+    unless args.scenePlace?
+      throw "set scenePlace"
+    unless args.objFile?
+      throw "set objFile"
+    args.texFile ?= null
+    args.texResolution ?= null
     console.log "parsing..."
-    parseObjFile objFile
+    parseObjFile args.objFile
     .then (objData) ->
       d = new $.Deferred
-      if texFile?
-        if texResolution?
-          texImg = new Image texResolution, texResolution
+      if args.texFile?
+        if args.texResolution?
+          texImg = new Image args.texResolution, args.texResolution
         else
           texImg = new Image()
         texImg.onload = ->
-          if texResolution?
+          if args.texResolution?
             canvas = $('<canvas>').get 0
             ctx = canvas.getContext "2d"
-            canvas.width = texResolution
-            canvas.height = texResolution
-            ctx.drawImage texImg, 0, 0, texResolution, texResolution
+            canvas.width = args.texResolution
+            canvas.height = args.texResolution
+            ctx.drawImage texImg, 0, 0, args.texResolution, args.texResolution
             d.resolve objData, canvas
           else
             d.resolve objData, texImg
         texImg.onerror = -> d.resolve objData
-        texImg.src = texFile
+        texImg.src = args.texFile
       else
         d.resolve objData
       d.promise()
     .then (objData, texImg=null) ->
       console.log "creating..."
-      createScene $scene_place, objData, texImg
+      createScene $(args.scenePlace), objData, texImg
     .then ($scene) -> setScene $scene
     .then ->
       console.log "done!"
@@ -268,4 +274,8 @@ class CSSRize
 
 
 $ =>
-  new CSSRize().run $("#scene"), "data/sphere.obj", "data/sphere.png", 2048
+  new CSSRize().run
+    scenePlace: $("#scene").get(0)
+    objFile: "data/rize.obj"
+    texFile: "data/rize.png"
+    texResolution: 2048
